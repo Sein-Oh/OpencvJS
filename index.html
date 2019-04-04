@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Camera</title>
+    </head>
+    <body>
+        <p id="status">OpenCV.js is loading. Please wait...</p>
+        <canvas id="canvasOutput" width="320" height="240"></canvas>
+        <video id="videoInput" width="320" height="240"></video>
+        <p id="mousePos">Mouse position : None</p>
+        <script type="text/javascript" src="streamVideo.js"></script>
+        <script type="text/javascript" src="meanshift.js"></script>
+        <script async src="opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+    </body>
+</html>
