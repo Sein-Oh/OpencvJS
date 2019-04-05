@@ -6,6 +6,7 @@
     <style>
         body{
             background-color:rgb(150,150,150);
+            -webkit-user-select:none;
         }
         button{
             width:90px;
@@ -25,13 +26,13 @@
     </style>
     <body>
         <div align='center' style='border:2px dashed #BDBDBD; width:300px'>
-            <button id='w' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s')>w</button>
+            <button id='w' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s') ontouchend=touch('s')>w</button>
             <div>
-            <button id='a' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s')>a</button>
-            <button id='s' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s')>s</button>
-            <button id='d' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s')>d</button>    
+            <button id='a' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s') ontouchend=touch('s')>a</button>
+            <button id='s' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s') ontouchend=touch('s')>s</button>
+            <button id='d' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s') ontouchend=touch('s')>d</button>    
             </div>
-            <button id='x' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s')>x</button>
+            <button id='x' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s') ontouchend=touch('s')>x</button>
         </div>
     </body>
     <script>
