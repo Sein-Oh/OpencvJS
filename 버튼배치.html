@@ -6,6 +6,7 @@
     <style>
         body{
             background-color:rgb(150,150,150);
+            text-align:center;
             -webkit-user-select:none;
         }
         button{
@@ -15,7 +16,7 @@
             font-size:30px;
             color: white;
             background-color:rgb(51,51,51);
-            border:none;            
+            border:none;
             border-radius:20px;
             box-shadow: 0 9px rgba(104,104,104, 0.5);
         }
@@ -25,13 +26,13 @@
         }
     </style>
     <body>
-        <div align='center'>
-            <div align='center' style='border:2px dashed #BDBDBD; width:300px'>
+        <div align='center' style='position:relative; height:90vh'>
+            <div style='position:absolute; bottom:0; border:2px dashed #BDBDBD; width:300px'>
                 <button id='w' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s') ontouchend=touch('s')>w</button>
                 <div>
                 <button id='a' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s') ontouchend=touch('s')>a</button>
                 <button id='s' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s') ontouchend=touch('s')>s</button>
-                <button id='d' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s') ontouchend=touch('s')>d</button>    
+                <button id='d' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s') ontouchend=touch('s')>d</button>
                 </div>
                 <button id='x' onmousedown=touch(this.id) ontouchstart=touch(this.id) onmouseup=touch('s') ontouchend=touch('s')>x</button>
             </div>
