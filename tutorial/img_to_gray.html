@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">   
+<head>  
+    <title>OPENCV_JSTEST</title>  
+     <script async src="https://docs.opencv.org/3.4/opencv.js"></script> 
+ </head> 
+ <body>
+    <input type="file" id="file_input"> 
+    <br>
+    <img id="input_image">
+    <br>
+    <canvas id='output'></canvas>
+ </body>  
+ <script>  
+     let img_input = document.getElementById('input_image');  
+     let file_input = document.getElementById('file_input');
+
+     file_input.addEventListener('change',(e)=> {  
+	     img_input.src = URL.createObjectURL(e.target.files[0])
+     },false);
+     
+     img_input.onload = function(){  
+	     let mat = cv.imread(img_input);
+	     cv.cvtColor(mat,mat,cv.COLOR_RGB2GRAY);
+	     let dsize = new cv.Size(300, 300);  
+	     cv.resize(mat, mat, dsize, 0, 0, cv.INTER_AREA);
+	     cv.imshow('output', mat);  
+	     mat.delete(); 
+     }  
+ </script>
+ </html>
