@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Opencv.js tutorial</title>
+</head>
+<!--script async src="https://docs.opencv.org/3.4/opencv.js"></script-->
+<script async src="./opencv.js"></script>
+
+<body>
+    <button id="toggleStream" onclick="toggleStream()">Play</button>
+    <br>
+    <br>
+    <video id="video" style="display: none;"></video>
+    <canvas id='output'></canvas>
+</body>
+<script>
+    let width, height;
+    function setSize() {
+        if (window.orientation == 0) {
+            width = 480; height = 640; //portrait
+        }
+        else {
+            width = 640; height = 480; //landscape
+        }
+    }
+    setSize();
+    const constraints = {
+        video: { facingMode: "user", }, audio: false
+    };
+    const video = document.getElementById("video");
+    const canvas = document.getElementById('output');
+    const canvasPos = canvas.getBoundingClientRect();
+    canvas.width = width; canvas.height = height;
+    canvas.addEventListener('mousedown', down);
+    canvas.addEventListener('mouseup', up);
+    canvas.addEventListener('mousemove', move);
+
+    function successCallback(stream) {
+        video.width = width; video.height = height;//prevent Opencv.js error.
+        canvas.width = width; canvas.height = height;
+        video.srcObject = stream;
+        video.play();
+        setTimeout(setupCV, 100);
+    }
+
+    function errorCallback(error) {
+        console.log(error);
+    }
+
+    let streaming = false;
+    function toggleStream() {
+        if (streaming === false) {
+            navigator.getUserMedia(constraints, successCallback, errorCallback);
+            document.getElementById('toggleStream').innerHTML = "Stop";
+        }
+        else {
+            const stream = video.srcObject;
+            const tracks = stream.getTracks();
+            tracks.forEach(track => {
+                track.stop();
+            });
+            document.getElementById('toggleStream').innerHTML = "Play";
+        }
+        streaming = !streaming;
+    }
+
+    let drawing = false;
+    let startX, startY, moveX, moveY;
+    function down(evt) {
+        drawing = true;
+        try {
+            startX = Math.round(evt.touches[0].clientX - canvasPos.left);
+            startY = Math.round(evt.touches[0].clientY - canvasPos.top);
+        } catch{
+            startX = Math.round(evt.clientX - canvasPos.left);
+            startY = Math.round(evt.clientY - canvasPos.top);
+        }
+        moveX = startX; moveY = startY;
+    }
+    function up(evt) {
+        drawing = false;
+        moveX = startX; moveY = startY;
+    }
+
+    function move(evt) {
+        if (drawing == true) {
+            try {
+                moveX = Math.round(evt.touches[0].clientX - canvasPos.left);
+                moveY = Math.round(evt.touches[0].clientY - canvasPos.top);
+            } catch{
+                moveX = Math.round(evt.clientX - canvasPos.left);
+                moveY = Math.round(evt.clientY - canvasPos.top);
+            }
+        }
+    }
+
+    let src, dist, cap, color;
+    function setupCV() {
+        if (src == undefined) {
+            src = new cv.Mat(height, width, cv.CV_8UC4);
+            cap = new cv.VideoCapture('video');
+            color = new cv.Scalar(255, 0, 0, 255);
+            console.log("cv setup");
+        }
+        setTimeout(process, 0);
+    }
+
+    function process() {
+        if (streaming === true) {
+            cap.read(src);
+            if (drawing === true) {
+                cv.rectangle(src, new cv.Point(startX, startY), new cv.Point(moveX, moveY), color, 2);
+            }
+            cv.imshow('output', src);
+            setTimeout(process, 33);
+        }
+    }
+</script>
+
+</html>
