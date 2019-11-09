@@ -11,7 +11,7 @@
     }
 </style>
 <script async src="https://docs.opencv.org/3.4/opencv.js"></script>
-<!--script async src="./opencv.js"></script-->
+<!--script async src="opencv.js"></script-->
 
 <body>
     <button id="toggleStream" onclick="toggleStream()">Play</button>
@@ -47,7 +47,7 @@
         canvas.width = width; canvas.height = height;
         video.srcObject = stream;
         video.play();
-        setTimeout(setupCV, 100);
+        setTimeout(setupCV, 0);
     }
 
     function errorCallback(error) {
@@ -101,10 +101,12 @@
         }
     }
 
-    let src, dist, cap, color;
+    let frame, cap, color;
+    let trackWindow, roi, hsvRoi, mask, lowScalar, highScalar, low, high, roiHist, hsvRoiVec
+
     function setupCV() {
-        if (src == undefined) {
-            src = new cv.Mat(height, width, cv.CV_8UC4);
+        if (frame == undefined) {
+            frame = new cv.Mat(height, width, cv.CV_8UC4);
             cap = new cv.VideoCapture('video');
             color = new cv.Scalar(255, 0, 0, 255);
             console.log("cv setup");
@@ -114,11 +116,11 @@
 
     function process() {
         if (streaming === true) {
-            cap.read(src);
+            cap.read(frame);
             if (drawing === true) {
-                cv.rectangle(src, new cv.Point(startX, startY), new cv.Point(moveX, moveY), color, 2);
+                cv.rectangle(frame, new cv.Point(startX, startY), new cv.Point(moveX, moveY), color, 2);
             }
-            cv.imshow('output', src);
+            cv.imshow('output', frame);
             setTimeout(process, 33);
         }
     }
