@@ -86,11 +86,11 @@
         moveX = startX; moveY = startY;
         drawing = true;
         tracking = false;
+        inProcess = false;
     }
 
     let tracking = false;
     function up(evt) {
-        moveX = startX; moveY = startY;
         drawing = false;
         tracking = true;
     }
@@ -124,7 +124,13 @@
                 cv.rectangle(frame, new cv.Point(startX, startY), new cv.Point(moveX, moveY), new cv.Scalar(255, 0, 0, 255), 2);
             }
             if (tracking === true) {
-                meanShift();
+                try {
+                    meanShift();
+                }
+                catch {
+                    console.log("Error on meanshift.");
+                    tracking = false;
+                }
             }
             cv.imshow('output', frame);
             setTimeout(process, 33);
@@ -137,7 +143,11 @@
         if (inProcess === false) {
             console.log('Setup meanshift.');
             inProcess = true;
-            trackWindow = new cv.Rect(startX, startY, moveX, moveY);
+            const p1 = Math.min(startX, moveX);
+            const p2 = Math.min(startY, moveY);
+            const p3 = Math.max(startX, moveX) - p1;
+            const p4 = Math.max(startY, moveY) - p2;
+            trackWindow = new cv.Rect(p1, p2, p3, p4);
             roi = frame.roi(trackWindow);
             hsvRoi = new cv.Mat();
             cv.cvtColor(roi, hsvRoi, cv.COLOR_RGBA2RGB);
