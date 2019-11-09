@@ -4,8 +4,14 @@
 <head>
     <title>Opencv.js tutorial</title>
 </head>
-<!--script async src="https://docs.opencv.org/3.4/opencv.js"></script-->
-<script async src="./opencv.js"></script>
+<style>
+    body {
+        -webkit-user-select: none; /*버튼을 오래 눌렀을 때 텍스트 선택되는 현상 방지(모바일)*/
+        overscroll-behavior: none; /*화면을 당겨서 새로고침되는 현상 방지(모바일)*/
+    }
+</style>
+<script async src="https://docs.opencv.org/3.4/opencv.js"></script>
+<!--script async src="./opencv.js"></script-->
 
 <body>
     <button id="toggleStream" onclick="toggleStream()">Play</button>
