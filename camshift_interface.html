@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Opencv.js tutorial</title>
+</head>
+<style>
+    body {
+        -webkit-user-select: none;
+        overscroll-behavior: none;
+    }
+</style>
+
+<script async src="opencv.js" onload="cvReady()"></script>
+
+<body>
+    <video id="input" style="display:none"></video>
+    <canvas id='output'></canvas>
+    <br>
+    <button onclick="clearTarget()">Clear Target</button>
+</body>
+<script>
+    let startPos, movePos, canvasPos, canvasOnDown, trackingState, firstLoop, ctx;
+    function down(evt) {
+        try { startPos = [Math.round(evt.touches[0].clientX - canvasPos.left), Math.round(evt.touches[0].clientY - canvasPos.top)] }
+        catch { startPos = [Math.round(evt.clientX - canvasPos.left), Math.round(evt.clientY - canvasPos.top)] }
+        movePos = startPos;
+        canvasOnDown = true;
+        trackingState = false;
+        firstLoop = true;
+    }
+
+    function up(evt) {
+        canvasOnDown = false;
+        trackingState = true;
+    }
+
+    function move(evt) {
+        if (canvasOnDown == true) {
+            try { movePos = [Math.round(evt.touches[0].clientX - canvasPos.left), Math.round(evt.touches[0].clientY - canvasPos.top)] }
+            catch { movePos = [Math.round(evt.clientX - canvasPos.left), Math.round(evt.clientY - canvasPos.top)] }
+        }
+    }
+
+    function clearTarget() {
+        trackingState = false;
+    }
+
+    function cvReady() {
+        const video = document.getElementById('input');
+        if (window.orientation == 0) {
+            video.width = 480;
+            video.height = 640;
+        } else {
+            video.width = 640;
+            video.height = 480;
+        }
+        function successCallback(stream) {
+            video.srcObject = stream;
+            video.play();
+        }
+        function errorCallback(error) {
+            console.log(error);
+        }
+        const constraints = {
+            video: { facingMode: "environment", }, audio: false
+        };
+        const canvas = document.getElementById('output');
+        ctx = canvas.getContext('2d');
+        canvasPos = canvas.getBoundingClientRect();
+        canvas.addEventListener('mousedown', down);
+        canvas.addEventListener('mouseup', up);
+        canvas.addEventListener('mousemove', move);
+        canvas.addEventListener('mouseleave', up);
+        canvas.addEventListener('touchstart', down);
+        canvas.addEventListener('touchend', up);
+        canvas.addEventListener('touchmove', move);
+
+        cv['onRuntimeInitialized'] = async function () {
+            navigator.getUserMedia(constraints, successCallback, errorCallback);
+            let frame = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+            let cap = new cv.VideoCapture('input');
+            cap.read(frame);
+            console.log("cv ready");
+            setTimeout(mainLoop, 0);
+
+            async function mainLoop() {
+                cap.read(frame);
+                if (canvasOnDown === true) draw();
+                if (trackingState === true) {
+                    try { await tracking() }
+                    catch {
+                        console.log("Error on tracking.");
+                        trackingState = false;
+                    }
+                }
+                cv.imshow('output', frame);
+                setTimeout(mainLoop, 33);
+            }
+
+            function draw() {
+                cv.rectangle(frame, new cv.Point(startPos[0], startPos[1]), new cv.Point(movePos[0], movePos[1]), [0, 0, 255, 255], 2);
+                //cv.circle(frame, new cv.Point(startPos[0], startPos[1]), 10, [255,0,0,255]);
+            }
+
+            let trackWindow, roi, hsvRoi, mask, lowScalar, highScalar, low, high, roiHist, hsvRoiVec, termCrit, hsv, dst, hsvVec, trackBox;
+            function tracking() {
+                if (firstLoop === true) {
+                    console.log("Tracking start.");
+                    firstLoop = false;
+                    const p1 = Math.min(startPos[0], movePos[0]);
+                    const p2 = Math.min(startPos[1], movePos[1]);
+                    const p3 = Math.max(startPos[0], movePos[0]) - p1;
+                    const p4 = Math.max(startPos[1], movePos[1]) - p2;
+                    trackWindow = new cv.Rect(p1, p2, p3, p4);
+                    roi = frame.roi(trackWindow);
+                    hsvRoi = new cv.Mat();
+                    cv.cvtColor(roi, hsvRoi, cv.COLOR_RGBA2RGB);
+                    cv.cvtColor(hsvRoi, hsvRoi, cv.COLOR_RGB2HSV);
+                    mask = new cv.Mat();
+                    lowScalar = new cv.Scalar(30, 30, 0);
+                    highScalar = new cv.Scalar(180, 180, 180);
+                    low = new cv.Mat(hsvRoi.rows, hsvRoi.cols, hsvRoi.type(), lowScalar);
+                    high = new cv.Mat(hsvRoi.rows, hsvRoi.cols, hsvRoi.type(), highScalar);
+                    cv.inRange(hsvRoi, low, high, mask);
+                    roiHist = new cv.Mat();
+                    hsvRoiVec = new cv.MatVector();
+                    hsvRoiVec.push_back(hsvRoi);
+                    cv.calcHist(hsvRoiVec, [0], mask, roiHist, [180], [0, 180]);
+                    cv.normalize(roiHist, roiHist, 0, 255, cv.NORM_MINMAX);
+
+                    roi.delete(); hsvRoi.delete(); mask.delete(); low.delete(); high.delete(); hsvRoiVec.delete();
+                    termCrit = new cv.TermCriteria(cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 1);
+
+                    hsv = new cv.Mat(video.height, video.width, cv.CV_8UC3);
+                    dst = new cv.Mat();
+                    hsvVec = new cv.MatVector();
+                    hsvVec.push_back(hsv);
+                    trackBox = null;
+                }
+                cv.cvtColor(frame, hsv, cv.COLOR_RGBA2RGB);
+                cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+                cv.calcBackProject(hsvVec, [0], roiHist, dst, [0, 180], 1);
+
+                [trackBox, trackWindow] = cv.CamShift(dst, trackWindow, termCrit);
+
+                const pts = cv.rotatedRectPoints(trackBox);
+                const ptX = pts.map(p => { return p["x"] });
+                const ptY = pts.map(p => { return p["y"] });
+                const ptMinX = Math.min.apply(null, ptX);
+                const ptMinY = Math.min.apply(null, ptY);
+                const ptMaxX = Math.max.apply(null, ptX);
+                const ptMaxY = Math.max.apply(null, ptY);
+                const centerX = Math.round((ptMaxX + ptMinX)/2);
+                const centerY = Math.round((ptMaxY + ptMinY)/2);
+
+                cv.circle(frame, new cv.Point(video.width/2, video.height/2), 100, [0, 255, 0, 255], 2);
+                cv.circle(frame, new cv.Point(centerX, centerY), 5, [255, 0, 0, 255], 2);
+                cv.rectangle(frame, new cv.Point(ptMinX, ptMinY), new cv.Point(ptMaxX, ptMaxY), [255, 255, 255, 255], 2);
+                cv.line(frame, new cv.Point(centerX, centerY), new cv.Point(video.width/2, video.height/2), [255, 255, 0, 255], 2);
+            }
+        };
+    }
+</script>
+
+</html>
