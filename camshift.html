@@ -16,15 +16,14 @@
 <body>
     <p id="info">Loading. Please wait.</p>
     <br>
-    <video id="input" src="video.mp4" autoplay="autoplay" muted="muted"></video>
-    <br>
+    <video id="input" style="display:none"></video>
     <canvas id='output'></canvas>
 </body>
 <script>
     let startPos, movePos, canvasPos, canvasOnDown, trackingState, firstLoop;
     function down(evt) {
         try { startPos = [Math.round(evt.touches[0].clientX - canvasPos.left), Math.round(evt.touches[0].clientY - canvasPos.top)] }
-        catch { startPos = [Math.round(evt.clientX - canvasPos.left), Math.round(evt.clientY - canvasPos.top)] }        
+        catch { startPos = [Math.round(evt.clientX - canvasPos.left), Math.round(evt.clientY - canvasPos.top)] }
         movePos = startPos;
         canvasOnDown = true;
         trackingState = false;
@@ -44,11 +43,26 @@
     }
 
     function cvReady() {
+        document.getElementById("info").innerHTML = "Opencv.js is ready."
         const video = document.getElementById('input');
+        if (window.orientation == 0) {
+            video.width = 960;
+            video.height = 1280;
+        } else {
+            video.width = 1280;
+            video.height = 960;
+        }
+        function successCallback(stream) {
+            video.srcObject = stream;
+            video.play();
+        }
+        function errorCallback(error) {
+            console.log(error);
+        }
+        const constraints = {
+            video: { facingMode: "user", }, audio: false
+        };
         const canvas = document.getElementById('output');
-        document.getElementById("info").innerHTML = "Opencv.js is ready.";
-        //video.style.display = "none";
-
         canvasPos = canvas.getBoundingClientRect();
         canvas.addEventListener('mousedown', down);
         canvas.addEventListener('mouseup', up);
@@ -57,11 +71,9 @@
         canvas.addEventListener('touchstart', down);
         canvas.addEventListener('touchend', up);
         canvas.addEventListener('touchmove', move);
+
         cv['onRuntimeInitialized'] = async function () {
-            video.width = video.videoWidth;
-            video.height = video.videoHeight;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            navigator.getUserMedia(constraints, successCallback, errorCallback);
             let frame = new cv.Mat(video.height, video.width, cv.CV_8UC4);
             let cap = new cv.VideoCapture('input');
             cap.read(frame);
@@ -73,7 +85,7 @@
                 if (canvasOnDown === true) draw();
                 if (trackingState === true) {
                     try { tracking() }
-                    catch { 
+                    catch {
                         console.log("Error on tracking.");
                         trackingState = false;
                     }
@@ -103,8 +115,8 @@
                     mask = new cv.Mat();
                     lowScalar = new cv.Scalar(30, 30, 0);
                     highScalar = new cv.Scalar(180, 180, 180);
-                    low = new cv.Mat(hsvRoi.rows, hsvRoi.cols, hsvRoi.type(), lowScalar);//
-                    high = new cv.Mat(hsvRoi.rows, hsvRoi.cols, hsvRoi.type(), highScalar);//
+                    low = new cv.Mat(hsvRoi.rows, hsvRoi.cols, hsvRoi.type(), lowScalar);
+                    high = new cv.Mat(hsvRoi.rows, hsvRoi.cols, hsvRoi.type(), highScalar);
                     cv.inRange(hsvRoi, low, high, mask);
                     roiHist = new cv.Mat();
                     hsvRoiVec = new cv.MatVector();
