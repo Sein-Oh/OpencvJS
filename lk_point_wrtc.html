@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+ <meta charset="utf-8">
+ <title>My LK Tracker</title>
+ <script type="text/javascript" src="./jsfeat-min.js"></script>
+</head>
+<body>
+ <p id="mousePos">Mouse :</p>
+ <video id="webcam" width="640" height="480" style="display:none;"></video>
+ <canvas id="canvas" width="640" height="480"></canvas>
+</body>
+
+<script type="text/javascript">
+ let video = document.getElementById("webcam");
+ navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(function(stream){
+  video.srcObject = stream;
+  video.play();
+ }).catch(function(err){
+  console.log("An error occured! " + err);
+ });
+ 
+ let canvas = document.getElementById('canvas');
+ let canvasPos = canvas.getBoundingClientRect();
+ canvas.addEventListener("mousedown", canvasDown);
+ 
+ let ctx = canvas.getContext("2d");
+ ctx.fillStyle = "rgb(0,0,255)";
+ ctx.strokeStyle = "rgb(0,0,0)";
+
+ let curr_img_pyr = new jsfeat.pyramid_t(3);
+ let prev_img_pyr = new jsfeat.pyramid_t(3);
+ curr_img_pyr.allocate(640, 480, jsfeat.U8_t|jsfeat.C1_t);
+ prev_img_pyr.allocate(640, 480, jsfeat.U8_t|jsfeat.C1_t);
+ 
+ let point_count = 0;
+ let maxPoints = 50;
+ let point_status = new Uint8Array(maxPoints);
+ let prev_xy = new Float32Array(maxPoints*2);
+ let curr_xy = new Float32Array(maxPoints*2);
+
+ let win_size = 20;
+ let max_iterations = 30;
+ let epsilon = 0.01;
+ let min_eigen = 0.001;
+
+ function processVideo(){
+  ctx.drawImage(video, 0, 0, 640, 480);
+  let imageData = ctx.getImageData(0, 0, 640, 480);
+
+  //swap flow data
+  let _pt_xy = prev_xy;
+  prev_xy = curr_xy;
+  curr_xy = _pt_xy;
+  let _pyr = prev_img_pyr;
+  prev_img_pyr = curr_img_pyr;
+  curr_img_pyr = _pyr;
+
+  jsfeat.imgproc.grayscale(imageData.data, 640, 480, curr_img_pyr.data[0]);
+  curr_img_pyr.build(curr_img_pyr.data[0], true);
+  jsfeat.optical_flow_lk.track(
+   prev_img_pyr, curr_img_pyr,
+   prev_xy, curr_xy,
+   point_count,
+   win_size, max_iterations, point_status,
+   epsilon, min_eigen
+  );
+
+  //prune_oflow_points
+  let i = 0;
+  let j = 0;
+
+  for(i = 0; i < point_count; ++i){
+   if(point_status[i] == 1){
+    if(j < i){
+     curr_xy[j<<1] = curr_xy[i<<1];
+     curr_xy[(j<<1)+1] = curr_xy[(i<<1)+1];
+    }
+    //draw circle
+    ctx.beginPath();
+    ctx.arc(curr_xy[j<<1], curr_xy[(j<<1)+1], 3, 0, Math.PI*2, true);
+    ctx.closePath();
+    ctx.fill();
+    ++j;
+   }
+  }
+  point_count = j;
+
+  setTimeout(processVideo, 0);
+ }
+ processVideo();
+
+ let mouseX, mouseY;
+ function canvasDown(){
+  event.preventDefault();
+  mouseX = event.clientX - canvasPos.left;
+  mouseY = event.clientY - canvasPos.top;
+  document.getElementById("mousePos").innerHTML = "Mouse : " + mouseX + "," + mouseY;
+  curr_xy[point_count<<1] = mouseX;
+  curr_xy[(point_count<<1)+1] = mouseY;
+  point_count++;
+ }
+</script>
+</html>

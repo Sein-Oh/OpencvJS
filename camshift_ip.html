@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Camshift, Clientside</title>
+</head>
+<style>
+    body {
+        -webkit-user-select: none;
+        overscroll-behavior: none;
+    }
+</style>
+
+<script async src="opencv.js" onload="cvReady()"></script>
+
+<body>
+    <img id="input" style="display:none" draggable="false"></img>
+    <canvas id='output'></canvas>
+</body>
+<script>
+    const video = document.getElementById('input');
+    video.src = "http://192.168.0.2:8080/video";
+    video.setAttribute("crossOrigin", "");
+
+    let startPos, movePos, canvasPos, canvasOnDown, trackingState, firstLoop;
+    function down(evt) {
+        try { startPos = [Math.round(evt.touches[0].clientX - canvasPos.left), Math.round(evt.touches[0].clientY - canvasPos.top)] }
+        catch { startPos = [Math.round(evt.clientX - canvasPos.left), Math.round(evt.clientY - canvasPos.top)] }
+        movePos = startPos;
+        canvasOnDown = true;
+        trackingState = false;
+        firstLoop = true;
+    }
+
+    function up(evt) {
+        canvasOnDown = false;
+        trackingState = true;
+    }
+
+    function move(evt) {
+        if (canvasOnDown == true) {
+            try { movePos = [Math.round(evt.touches[0].clientX - canvasPos.left), Math.round(evt.touches[0].clientY - canvasPos.top)] }
+            catch { movePos = [Math.round(evt.clientX - canvasPos.left), Math.round(evt.clientY - canvasPos.top)] }
+        }
+    }
+
+    function cvReady() {
+        const canvas = document.getElementById('output');
+        canvasPos = canvas.getBoundingClientRect();
+        canvas.addEventListener('mousedown', down);
+        canvas.addEventListener('mouseup', up);
+        canvas.addEventListener('mousemove', move);
+        canvas.addEventListener('mouseleave', up);
+        canvas.addEventListener('touchstart', down);
+        canvas.addEventListener('touchend', up);
+        canvas.addEventListener('touchmove', move);
+
+        cv['onRuntimeInitialized'] = async function () {
+            console.log("cv ready");
+            setTimeout(mainLoop, 0);
+
+            function mainLoop() {
+                frame = cv.imread(video);
+                if (canvasOnDown === true) draw();
+                if (trackingState === true) {
+                    try { tracking() }
+                    catch {
+                        console.log("Error on tracking.");
+                        trackingState = false;
+                    }
+                }
+                cv.imshow('output', frame);
+                setTimeout(mainLoop, 33);
+            }
+
+            function draw() {
+                cv.rectangle(frame, new cv.Point(startPos[0], startPos[1]), new cv.Point(movePos[0], movePos[1]), new cv.Scalar(255, 0, 0, 255), 2);
+            }
+
+            let trackWindow, roi, hsvRoi, mask, lowScalar, highScalar, low, high, roiHist, hsvRoiVec, termCrit, hsv, dst, hsvVec, trackBox;
+            function tracking() {
+                if (firstLoop === true) {
+                    console.log("Tracking start.");
+                    firstLoop = false;
+                    const p1 = Math.min(startPos[0], movePos[0]);
+                    const p2 = Math.min(startPos[1], movePos[1]);
+                    const p3 = Math.max(startPos[0], movePos[0]) - p1;
+                    const p4 = Math.max(startPos[1], movePos[1]) - p2;
+                    trackWindow = new cv.Rect(p1, p2, p3, p4);
+                    roi = frame.roi(trackWindow);
+                    hsvRoi = new cv.Mat();
+                    cv.cvtColor(roi, hsvRoi, cv.COLOR_RGBA2RGB);
+                    cv.cvtColor(hsvRoi, hsvRoi, cv.COLOR_RGB2HSV);
+                    mask = new cv.Mat();
+                    lowScalar = new cv.Scalar(30, 30, 0);
+                    highScalar = new cv.Scalar(180, 180, 180);
+                    low = new cv.Mat(hsvRoi.rows, hsvRoi.cols, hsvRoi.type(), lowScalar);
+                    high = new cv.Mat(hsvRoi.rows, hsvRoi.cols, hsvRoi.type(), highScalar);
+                    cv.inRange(hsvRoi, low, high, mask);
+                    roiHist = new cv.Mat();
+                    hsvRoiVec = new cv.MatVector();
+                    hsvRoiVec.push_back(hsvRoi);
+                    cv.calcHist(hsvRoiVec, [0], mask, roiHist, [180], [30, 200]);
+                    cv.normalize(roiHist, roiHist, 0, 255, cv.NORM_MINMAX);
+
+                    roi.delete(); hsvRoi.delete(); mask.delete(); low.delete(); high.delete(); hsvRoiVec.delete();
+                    termCrit = new cv.TermCriteria(cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 1, 1);
+
+                    hsv = new cv.Mat(video.height, video.width, cv.CV_8UC3);
+                    dst = new cv.Mat();
+                    hsvVec = new cv.MatVector();
+                    hsvVec.push_back(hsv);
+                    trackBox = null;
+                }
+                cv.cvtColor(frame, hsv, cv.COLOR_RGBA2RGB);
+                cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+                cv.calcBackProject(hsvVec, [0], roiHist, dst, [0, 180], 1);
+
+                [trackBox, trackWindow] = cv.CamShift(dst, trackWindow, termCrit);
+
+                // Draw it on image
+                let pts = cv.rotatedRectPoints(trackBox);
+                cv.line(frame, pts[0], pts[1], [255, 0, 0, 255], 3);
+                cv.line(frame, pts[1], pts[2], [255, 0, 0, 255], 3);
+                cv.line(frame, pts[2], pts[3], [255, 0, 0, 255], 3);
+                cv.line(frame, pts[3], pts[0], [255, 0, 0, 255], 3);
+            }
+        };
+    }
+</script>
+
+</html>

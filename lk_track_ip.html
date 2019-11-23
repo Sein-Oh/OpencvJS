@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>My LK Tracker</title>
+    <script type="text/javascript" src="./jsfeat-min.js"></script>
+</head>
+<style>
+    body {
+        -webkit-user-select: none;
+        overscroll-behavior: none;
+    }
+</style>
+
+<body>
+    <img id="input" style="display:none;"></video>
+    <canvas id="output"></canvas>
+    <br>
+    <button onclick="clearPoints()">Clear Points</button>
+</body>
+
+<script type="text/javascript">
+    const video = document.getElementById("input");
+    const canvas = document.getElementById('output');
+    const ctx = canvas.getContext("2d");
+    video.src = "http://192.168.0.2:8080/video";
+    video.setAttribute("crossOrigin", "");
+    video.onload = function () {
+        canvas.width = video.width;
+        canvas.height = video.height;
+        ctx.fillStyle = "rgb(0,255,0)";
+        ctx.strokeStyle = "rgb(0,255,0)";
+        ctx.lineWidth = 3;
+        setTimeout(lkSetup, 0);
+        setTimeout(mainLoop, 0);
+    }
+
+    canvas.addEventListener('mousedown', mousedown);
+    canvas.addEventListener('touchstart', mousedown);
+
+    function mouse_or_touch(event) {
+        const canvasPos = canvas.getBoundingClientRect();
+        try {
+            [x, y] = [Math.round(event.touches[0].clientX - canvasPos.left), Math.round(event.touches[0].clientY - canvasPos.top)];
+        } catch {
+            [x, y] = [Math.round(event.clientX - canvasPos.left), Math.round(event.clientY - canvasPos.top)];
+        }
+        return [x, y];
+    }
+
+    let startPos, endPos, onDown, drawing;
+    function mousedown(event) {
+        startPos = mouse_or_touch(event);
+        addPoint(startPos);
+    }
+
+    function addPoint(pos) {
+        curr_xy[point_count << 1] = pos[0];
+        curr_xy[(point_count << 1) + 1] = pos[1];
+        point_count++;
+    }
+
+    function clearPoints() {
+        point_count = 0;
+    }
+
+    let curr_img_pyr, prev_img_pyr, point_count, maxPoints, point_status;
+    let prev_xy, curr_xy, win_size, max_iterations, epsilon, min_eigen;
+    function lkSetup() {
+        curr_img_pyr = new jsfeat.pyramid_t(3);
+        prev_img_pyr = new jsfeat.pyramid_t(3);
+        curr_img_pyr.allocate(video.width, video.height, jsfeat.U8_t | jsfeat.C1_t);
+        prev_img_pyr.allocate(video.width, video.height, jsfeat.U8_t | jsfeat.C1_t);
+
+        point_count = 0;
+        maxPoints = 100;
+        point_status = new Uint8Array(maxPoints);
+        prev_xy = new Float32Array(maxPoints * 2);
+        curr_xy = new Float32Array(maxPoints * 2);
+
+        win_size = 20;
+        max_iterations = 30;
+        epsilon = 0.01;
+        min_eigen = 0.001;
+    }
+
+    function mainLoop() {
+        ctx.drawImage(video, 0, 0, video.width, video.height);
+        const imageData = ctx.getImageData(0, 0, video.width, video.height);
+        const [_pt_xy, _pyr] = [prev_xy, prev_img_pyr];
+        [prev_xy, curr_xy] = [curr_xy, _pt_xy];
+        [prev_img_pyr, curr_img_pyr] = [curr_img_pyr, _pyr];
+
+        jsfeat.imgproc.grayscale(imageData.data, video.width, video.height, curr_img_pyr.data[0]);
+        curr_img_pyr.build(curr_img_pyr.data[0], true);
+        jsfeat.optical_flow_lk.track(
+            prev_img_pyr, curr_img_pyr,
+            prev_xy, curr_xy,
+            point_count,
+            win_size, max_iterations, point_status,
+            epsilon, min_eigen
+        );
+
+        let [i, j] = [0, 0];
+        let x = [];
+        let y = [];
+        for (i = 0; i < point_count; ++i) {
+            if (point_status[i] == 1) {
+                if (j < i) [curr_xy[j << 1], curr_xy[(j << 1) + 1]] = [curr_xy[i << 1], curr_xy[(i << 1) + 1]];
+                x.push(curr_xy[j << 1]);
+                y.push(curr_xy[(j << 1) + 1]);
+                ++j;
+            }
+        }
+        point_count = j;
+
+        for (i = 0; i < x.length; i++) {
+            ctx.beginPath();
+            ctx.arc(x[i], y[i], 3, 0, Math.PI * 2, true);
+            ctx.fill();
+        }
+
+        if (point_count > 1) {
+            const [xmin, xmax] = [Math.min.apply(null, x), Math.max.apply(null, x)];
+            const [ymin, ymax] = [Math.min.apply(null, y), Math.max.apply(null, y)];
+            const xcenter = Math.round(xmin + (xmax-xmin)/2);
+            const ycenter = Math.round(ymin + (ymax-ymin)/2);
+            ctx.beginPath();
+            ctx.arc(xcenter, ycenter, 3, 0, Math.PI * 2, true);
+            ctx.rect(xmin, ymin, xmax-xmin, ymax-ymin);
+            ctx.stroke();
+        }
+        setTimeout(mainLoop, 30);
+    }
+</script>
+
+</html>
